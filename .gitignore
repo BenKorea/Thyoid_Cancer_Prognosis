@@ -1,0 +1,12 @@
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+.Rprofile
+*.Rproj
+renv/
+raw_data/
+/.quarto/
+*.csv
+*.xlsx
+_site

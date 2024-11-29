@@ -1,0 +1,250 @@
+---
+title: Prognostic evaluation model for differentiated thyroid cancer
+authors:
+  - name: Byung Il Kim
+    affiliation: Department of Nuclear Medicine, Korea Cancer Center Hospital, Korea Institute of Radiological and Medical Sciences
+    roles: writing
+    corresponding: true
+bibliography: references.bib
+---
+
+```{r define_mode, warning=FALSE, message=FALSE}
+
+# manuscript에 필요치 않은 코드 출력에 대한 환경변수 설정
+manusctipt_mode<-"N" 
+input_error_checking_mode<-"Y"
+
+```
+
+```{r}
+#| label: Source-scripts
+ 
+source_directory<-"source"
+source_filename<-"my_functions.R"
+
+project_path <<- getwd()
+source_path <<- file.path(project_path, source_directory)
+source_path_filename <- file.path(source_path, source_filename)
+source(source_path_filename)
+
+rm(source_directory, source_filename, project_path, source_path, source_path_filename)
+```
+
+```{r load_packages, warning=FALSE, message=FALSE}
+
+# 라이브러리들은 한 곳에 모아두어 총 로딩시간을 줄이고자 함
+library(readxl)
+suppressPackageStartupMessages(library(data.table))
+library(digest)
+library(openxlsx)
+library(stringr)
+
+library(data.table)
+# library(moonBook)
+suppressPackageStartupMessages(library(dplyr))
+# library(survival)
+# library(maxstat)
+# library(survminer)
+# library(car)
+# library(ggplot2)
+# library(rms)
+# library(caret)
+# library(rsample)
+# library(pec)
+# library(purrr)
+# library(gtsummary)
+# library(knitr)
+# library(kableExtra)
+# library(papaja)
+
+```
+
+```{r load_raw_data, warning=FALSE, message=FALSE}
+
+load_raw_data <- function(folder_path, pattern) {
+
+  excel_file_name <- list.files(folder_path, pattern = pattern)
+  # 다운로드 날자를 추출하여 birthday input error를 확인하기 위해 사용할 예정
+  date_string <- substr(excel_file_name, 6, 13)
+  downloaded_date <<- as.Date(date_string, format = "%Y%m%d")
+  data <- as.data.table(read_excel(file.path(folder_path, excel_file_name[1])))
+
+  return(data)
+}
+
+raw_data_directory<-"raw_data"
+
+project_path <<- getwd()
+raw_data_path <<- file.path(project_path, raw_data_directory)
+pattern <- "관심환자.*"
+raw_data <- load_raw_data(raw_data_path, pattern)
+
+```
+
+```{r deidentify_PatientID, warning=FALSE, message=FALSE}
+
+deidentified_PatientID_data<-my_deidentify_PatientID(raw_data, "등록번호")
+
+```
+
+```{r parsing_birthday_data, warning=FALSE, message=FALSE}
+
+deidentified_PatientID_data <- deidentified_PatientID_data[, .(등록일, 등록번호, 성별, 나이, 특기사항, 분류명)]
+# 나이에 있는 "세"를 제거하고 정수형으로 변환
+deidentified_PatientID_data$나이 <- as.integer(sub("세", "", deidentified_PatientID_data$나이))
+birthday_data <- my_parsing_birthday_data (deidentified_PatientID_data)
+
+```
+
+```{r parsing_risk_data, warning=FALSE, message=FALSE}
+
+source("C:/Projects/R-4.4.1-Thyroid_Cancer_Prognosis/source/my_functions.R")
+risk_data <- my_parsing_risk_data (deidentified_PatientID_data)
+
+```
+
+```{r cN_validation, warning=FALSE, message=FALSE, eval=FALSE}
+
+min(risk_data$cN_date, na.rm = TRUE)
+max(risk_data$cN_date, na.rm = TRUE)
+table(risk_data$cN_modality)
+table(risk_data$cN)
+
+```
+
+```{r op_validation, warning=FALSE, message=FALSE, eval=FALSE}
+
+min(risk_data$op_date, na.rm = TRUE)
+max(risk_data$op_date, na.rm = TRUE)
+# op_name의 sub 또는 near는 subTT로 통일, Thyroidectomy_Type은 subTT TT Completion으로 구분함
+# op_name subTTcND or TTcND 이외는 일단 TT_LND포함되어 있으면 제외할 수 있도록 TT여부를 만들어야 한다.
+table(risk_data$Thyroidectomy_Type)
+
+Thyroidectomy_others<-risk_data[Thyroidectomy_Type %in% c("Others"), ]
+Thyroidectomy_others<-select(Thyroidectomy_others, op_name,op_line)
+
+Thyroidectomy_Lobectomy<-risk_data[Thyroidectomy_Type %in% c("Lobectomy"), ]
+Thyroidectomy_Lobectomy<-select(Thyroidectomy_Lobectomy, op_name,op_line)
+
+table(risk_data$ND_Type)
+ND_not_done<-risk_data[ND_Type %in% c("Not Done"), ]
+ND_not_done<-select(ND_not_done, op_name,op_line)
+
+table(risk_data$Endoscopic_or_Robotic)
+
+```
+
+```{r Histology_validation, warning=FALSE, message=FALSE, eval=FALSE}
+
+table(risk_data$highest_stage_histology)
+table(risk_data$highest_1st_location)
+table(risk_data$highest_1st_number)
+table(risk_data$highest_2nd_location)
+table(risk_data$highest_2nd_number)
+table(risk_data$highest_3rd_location)
+table(risk_data$highest_3rd_number)
+table(risk_data$subsequent_stage_histology)
+table(risk_data$subsequent_1st_location)
+table(risk_data$subsequent_1st_number)
+```
+
+```{r birthday_risk_mismatch, warning=FALSE, message=FALSE}
+
+########################################
+if (input_error_checking_mode == "Y") {
+   risk_data_not_in_birthday_data <- risk_data[!birthday_data, on = "등록번호"]
+   }
+########################################
+
+########################################
+if (input_error_checking_mode == "Y") {
+   birthday_data_not_in_risk_data <- birthday_data[!risk_data, on = "등록번호"]
+   }
+########################################
+
+
+```
+
+```{r seperation_response_data, warning=FALSE}
+
+response_data <- hashed_data[분류명 %in% c("Excellent", "Indeterminate", "Biochemical", "Structural")]
+setnames(response_data, "분류명", "Response")
+response_data[, 등록일 := as.Date(등록일, format="%Y-%m-%d")]
+
+```
+
+```{r rai_data, warning=FALSE}
+
+rai_data<-hashed_data[분류명 %in% c("Not Done", "1st", "2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th", "10th")]
+setnames(rai_data, "분류명", "RAI")
+
+```
+
+## **Abstract**
+
+## **Introduction**
+
+## **Methods** [@RN606]
+
+Samples
+
+This study retrospectively analyzed the clinical and follow up data of PTC patients. Patients’ basic information, preoperative examination results, surgical records, postoperative histopathological reports, and follow-up records were collected. For PTC is a tumor with excellent prognosis, short time follow-up is not enough to obtain effective statistics. A minimum of 15 years of follow-up is sufficient. Finally, 660 PTC patients were included in our study with a median follow-up of 113.5 months. All of them were initially surgically treated at the Department of Head and Neck Surgery, Fudan University Shanghai Cancer Center (Shanghai, China) from January 2000 to December 2005. Lobectomy and isthmectomy was performed in T1 and T2 tumor confined to unilateral lobes. Total thyroidectomy was performed in T3 and T4 tumor or some of the patients with high-risk factors. These risk factors include multifocal cancer, lymph node metastasis, distant metastasis, family history, and early exposure to ionizing radiation. Total thyroidectomy is also feasible in some cases where postoperative radionuclide therapy is considered necessary. Central neck dissection was performed in cN1 and most of cN0 patients. Additional modified lateral lymph node dissection was performed in patients with clinically suspicious lateral lymph node metastasis (cN1b). Patients who had undergone previous thyroidectomy or revision neck dissection were excluded. All of the samples were pathologically confirmed. Thyrotrophic (TSH) suppressive therapy was the main treatment after operative. Some advanced PTC (invasive tumors, numerous lymph node metastases, or distant metastases.) were treated with radioactive iodine after total thyroid resection. The study was conducted in accordance with the Declaration of Helsinki (as revised in 2013). The study was approved by ethics board of Fudan University Shanghai Cancer Center (No. 050432-4-1911D) and individual consent for this retrospective analysis was waived.
+
+## Material & Methods
+
+### Histology
+
+수술 후 병리보고에서 PTC와 FTC가 동시에 발견되는 등 synchronous double primary thyroid cancer는 에후가 더 나쁠 것으로 판단되는 histology를 분석에 포함하였다. 우리기관에서는 2017년 이후 NIFTP를 berderline tumor로 분류해오고 있으며, 이 분석에서는 제외하였다.
+
+### Multiplicity
+
+단일병소와 다발성 병소를 구분하였다. synchronous double primary thyroid cancer는 다발성 병소로 간주하였다.
+
+### Bilaterality
+
+Right와 left lobe를 동시에 involve하는 경우에만 bilaterality positive로 하였다. 즉 한측엽 + pyramidal lobe나 isthmus을 침범하는 경우에는 unilateral 로 간주하였다. synchronous double primary thyroid cancer는 bilaterality positive로 간주하였다.
+
+### Follow-up
+
+During follow-up, neck palpation, ultrasound and thyroid function were performed routinely. Neck computed tomography (CT)/magnetic resonance imaging (MRI) and needle biopsy were performed for patients with suspected neck recurrence. Chest CT, head MRI, bone scan and FDG-positron emission tomography (PET)/CT were used for patients suspected of distant metastasis. Some patients were followed up by telephone/letter in local hospital. Local recurrence, distant metastasis, or death was considered adverse events for disease-free survival (DFS) analysis. The diagnosis of local recurrence should be confirmed by pathology. Elevated thyroglobulin without target lesion found by imaging examination (including ultrasound, CT, MRI, PET/CT) after total thyroidectomy was not considered as an adverse event of DFS in this study.
+
+Statistical analysis
+
+The chi-square test and the t-test were used to compare the classified variables and continuous variables in the basic characteristics of patients. Overall survival (OS), and DFS were calculated by Kaplan-Meier method. Univariate analysis was conducted in all possible prognostic factors. Factors that suggested a significant association with prognosis were included in further Cox regression multivariate analysis and nomogram model. The method of building a nomogram model was previously described by Iasonos et al. (10). All confidence intervals (CIs) were stated at the 95% confidence level. A value of P\<0.05 was considered to be statistically significant. SPSS 19.0 was used for data analysis (SPSS, Inc., Chicago, IL, USA). Nomogram model was established using software R 3.3.2.
+
+## **Results**
+
+Follow-up results
+
+Totally, 660 PTC patients were enrolled in this study. All of them were initially surgically treated at the Department of Head and Neck Surgery, Fudan University Shanghai Cancer Center (Shanghai, China) from January 2000 to December 2005. The clinicopathological data and followup data of the patients were summarized in Table 1. There were 486 female and 174 male, median age 44 years (14–83 years). All 660 patients received surgical treatment. Total thyroidectomy and central lymph node dissection were performed in 161 patients. Unilateral thyroidectomy and central lymph node dissection were performed in the other 599 patients. Lateral cervical lymph node dissection was performed in 264 patients. The median follow-up time was 113.5 months. By the end of follow-up, 589 patients had no evidence of metastasis or recurrence. While local recurrence occurred in 8 patients, distant metastasis occurred in 15 patients, and 6 patients died. Of the 14 patients with distant metastasis, 12 had lung metastasis, 1 brain metastasis, 1 bone metastasis, and 1 patient had multiple organ metastases. The 5-, 10- and 15-year DFS were 95.5%, 90.2% and 89.2%, respectively. The OS at 5, 10 and 15 years were 99.7%, 99.2% and 99.1%, respectively.
+
+Analysis of prognostic factors
+
+Prognostic factors of PTC were analyzed. Study factors included gender, age, family history (family history of thyroid cancer or other malignant tumor), the clinical assessment of T stage, N stage, tumor invasion, multifocal tumor, bilateral tumor, extra-lymph node invasion, maximum diameter of metastatic lymph nodes, number of lymph node metastasis in central region, number of lymph node metastasis in lateral region, surgical residue, whether total thyroidectomy, whether lateral cervical lymph node dissection, etc. In the univariate analysis about factors affecting OS, only surgical residue was found to significantly affect the survival of patients \[hazard ratio (HR) 20.9, 95% CI: 2.3–187.6, P\<0.05\]. Other factors were not shown to be associated with patient OS (P\>0.05). In the univariate analysis about factors influencing DFS, age, N staging, T staging, lateral cervical lymph node dissection, maximum diameter of metastatic lymph node, number of central lymph node metastasis, number of lateral cervical lymph node metastasis, and total number of lymph node metastasis were all shown to be correlated with DFS (P\<0.05). To analyze the influence of these 8 factors on DFS, Cox multivariate analysis was conducted. The results showed age (HR 2.00, 95% CI: 1.17–3.42, P\<0.05) and maximum size of metastatic lymph node (HR 1.75, 95% CI: 1.12–2.74, P\<0.05) were significantly correlated with DFS (Table 2). Patients with age \>45 had a higher risk of prognostic adverse events (Figure 1). Since the 8th edition of the American Joint Committee on Cancer (AJCC) TNM staging adjusted the age cutoff to 55 years, our subsequent analysis found that patients with \> age 55 had a higher risk of DFS adverse events than patients with age ≤55 (HR 2.76, 95% CI: 1.70–4.50, P\<0.05). However, age was not shown to be associated with OS. There was no significant difference in DFS between patients with metastatic lymph node diameter \<0.2 cm and those without lymph node metastasis. While, the maximal diameter of metastatic lymph nodes between 0.2–3 cm (HR 3.67, 95% CI: 1.13– 11.87, P\<0.05) and \>3 cm (HR 5.20, 95% CI: 1.31–20.65, P\<0.05) were associated with poor DFS (Figure 2).
+
+Establish prognostic evaluation model of PTC
+
+Age, N staging, T staging, lateral cervical lymph node dissection, maximum diameter of metastatic lymph node, number of central lymph node metastasis, number of lateral cervical lymph node metastasis, and total number of lymph node metastasis were shown to be correlated with DFS through the univariate Cox analysis. Therefore, these prognostic factors were included in our further nomogram model to predict 3-, 5-, and 10-year DFS (Figure 3). To test the prediction value of the nomogram model, the consistency index (C-index) was further calculated to be 0.71, with a 95% CI of 0.57–0.84. To read the nomogram, a vertical line up to the top point row to assign points for each variable should be drawn. Then, the total points for a patient can be added up, and one can obtain the probability of 3-, 5- and 10-year DFS by drawing a vertical line from the total point’s row.
+
+## **Discussion**
+
+### Changes in histologic definition of well differentiated thyroid cancer
+
+```{r define_earliest_and_lastest_op_date}
+earliest_op_date<-min(risk_data$op_date)
+lastest_op_date<-max(risk_data$op_date)
+```
+
+분화갑상선암은 예후가 좋으므로 예후 연구들의 분석 기간이 일반적으로 길다. 이 연구는 분석대상이 된 수술 기간이 `r  earliest_op_date)`부터 `r lastest_op_date`까지이며, 이 기간동안에 WHO classfication 2nd edition (1988), third edition (2004), 4th edition (2017), 5th edition (2022)가 포함되는데 histologic variant는 각 edition에 해당분류가 그대로 적용되었다. 그리고 각 variant의 예후를 분석한 후 favorable과 unfavorable 두가지로 grouping 하였다.
+
+![임시테이블](images/clipboard-855994839.png)
+
+well differentiated thyroid cancer에서의 histologic definition들은 아래의 Figure 그림에서처럼 chronologically 발전해 왔다. PTC-type nuclear features became essential criteria for malignancy in the second (1988) and third (2004) editions {Bai, 2020 #463}. 2022 WHO classification 5th edition에서는 oncocytic cell이 Hurthle cell로 변경되었다 {Jung, 2022 #457}. FVPTC가 1977년에 보고되었고, 1980년대에는 encalsulated FVPTC가 보고되었다. Ronald Ghossein 등에 의하면 MSKCC PTC의 17 to 25%에 해당하며, 이 중 1/3은 invasive 이고 나머지는 non-invasive 였다. 이 연구는 수술 기간이 `r  earliest_op_date)`부터 `r lastest_op_date`까지이며, 이러한 점을 ......하게 고려하였다.
+
+![Figure 1. Timeline depicting the changes in the histologic definition and classification of well differentiated thyroid carcinoma](images/캡처.JPG)
+
+Histologic classification이 연대에 따라 달라지는 것을 고려하였다 . [@RN648]
+
+```{r end}
+
+```
