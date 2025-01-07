@@ -103,6 +103,13 @@ risk_data <- my_parsing_risk_data (deidentified_PatientID_data)
 
 ```
 
+```{r parsing_response_data, warning=FALSE, message=FALSE}
+
+source("C:/Projects/R-4.4.1-Thyroid_Cancer_Prognosis/source/my_functions.R")
+response_data <- my_parsing_response_data (deidentified_PatientID_data)
+
+```
+
 ```{r cN_validation, warning=FALSE, message=FALSE, eval=FALSE}
 
 min(risk_data$cN_date, na.rm = TRUE)

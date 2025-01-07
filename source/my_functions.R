@@ -287,6 +287,36 @@ my_parsing_pT <- function(dt) {
   
 }
 
+my_parsing_pN <- function(dt) {  
+  
+  dt$pN <- tstrsplit(dt$pN_part, "\\(", fixed = FALSE, fill = NA, type.convert = TRUE)[[1]]
+  dt$pN_detail <- tstrsplit(dt$pN_part, "\\(", fixed = FALSE, fill = NA, type.convert = TRUE)[[2]]
+  
+  dt$ENE <- "N"
+  dt$ETE[grepl("ETE\\+", dt$pT_detail)] <- "Y"
+  
+  dt$ETE <- "N"
+  dt$ENE[grepl("ENE+", dt$pN_detail)] <- "Y"
+  return(dt)
+  
+}
+
+my_parsing_M <- function(dt) {  
+  
+  dt$M <- tstrsplit(dt$M_part, "\\(", fixed = FALSE, fill = NA, type.convert = TRUE)[[1]]
+  dt$M_detail <- tstrsplit(dt$M_part, "\\(", fixed = FALSE, fill = NA, type.convert = TRUE)[[2]]
+  
+  dt$M_Bone <- "N"
+  dt$M_Bone[grepl("Bone", dt$M_detail)] <- "Y"  
+  
+  dt$M_Lung <- "N"
+  dt$M_Lung[grepl("Lung", dt$M_detail)] <- "Y"    
+  # 
+  # dt[, M := ifelse(is.null(M_part), "N", "Y")]
+  return(dt)
+  
+}
+
 
 my_parsing_risk_data<-function(dt) {
   
@@ -294,15 +324,52 @@ my_parsing_risk_data<-function(dt) {
   setnames(risk_data, "분류명", "Risk")
   
   risk_data <- my_splilt_lines_for_risk_data(risk_data)
-  # risk_data <- my_parsing_cN_line(risk_data)
-  # risk_data <- my_parsing_op_line(risk_data)
-  # risk_data <- my_mutate_op_and_ND_type (risk_data)
+  risk_data <- my_parsing_cN_line(risk_data)
+  risk_data <- my_parsing_op_line(risk_data)
+  risk_data <- my_mutate_op_and_ND_type (risk_data)
   risk_data <- my_split_paracentesis_for_stage_line (risk_data)
   risk_data <- my_parsing_histology (risk_data)
-  # risk_data <- my_parsing_pT (risk_data)
-
+  risk_data <- my_parsing_pT (risk_data)
+  risk_data <- my_parsing_pN (risk_data)
+  risk_data <- my_parsing_M (risk_data)
+  
   return(risk_data)
 }
 
+################################################################################
+## my_functions_for_response
+################################################################################
+my_splilt_lines_for_response_data <- function(dt) {
+  
+  dt[, line_count := str_count(특기사항, "\n") + 1]
+  # if (input_error_checking_mode == "Y") {
+  #   risk_response_line_count_errors <<- dt[line_count >= 4 | line_count == 1]
+  # }
+  # dt <- dt[line_count == 3 | line_count == 2]
+  # dt[line_count == 3, c("cN_line", "op_line", "stage_line") := tstrsplit(특기사항, split = "\n", fixed = TRUE, fill = NA)]
+  # dt[line_count == 2, c("op_line", "stage_line") := tstrsplit(특기사항, split = "\n", fixed = TRUE, fill = NA)]
+  # 
+  # dt[, cN_line := my_clean_string_edges(cN_line)]
+  # dt[, op_line := my_clean_string_edges(op_line)]
+  # dt[, stage_line := my_clean_string_edges(stage_line)]
+  # 
+  # if (input_error_checking_mode == "Y") {
+  #   risk_data_op_line_error <<- dt[!grepl("^[0-9]", dt$op_line), ]
+  # }
+  # dt <- dt[grepl("^[0-9]", dt$op_line), ]
+  
+  return(dt)
+}
+
+
+my_parsing_response_data<-function(dt) {
+  
+  response_data <- dt[분류명 %in% c("Excellent","Indeterminate","Biochemical","Structural")]
+  setnames(response_data, "분류명", "Response")
+  response_data <- my_splilt_lines_for_response_data(response_data)  
+  
+  return(response_data)
+  
+}
 
   
