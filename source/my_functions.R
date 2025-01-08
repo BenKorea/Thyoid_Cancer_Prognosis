@@ -339,34 +339,56 @@ my_parsing_risk_data<-function(dt) {
 ################################################################################
 ## my_functions_for_response
 ################################################################################
-my_splilt_lines_for_response_data <- function(dt) {
+my_parsing_response_line <- function(dt) {
   
-  dt[, line_count := str_count(특기사항, "\n") + 1]
-  # if (input_error_checking_mode == "Y") {
-  #   risk_response_line_count_errors <<- dt[line_count >= 4 | line_count == 1]
-  # }
-  # dt <- dt[line_count == 3 | line_count == 2]
-  # dt[line_count == 3, c("cN_line", "op_line", "stage_line") := tstrsplit(특기사항, split = "\n", fixed = TRUE, fill = NA)]
-  # dt[line_count == 2, c("op_line", "stage_line") := tstrsplit(특기사항, split = "\n", fixed = TRUE, fill = NA)]
-  # 
-  # dt[, cN_line := my_clean_string_edges(cN_line)]
-  # dt[, op_line := my_clean_string_edges(op_line)]
-  # dt[, stage_line := my_clean_string_edges(stage_line)]
-  # 
-  # if (input_error_checking_mode == "Y") {
-  #   risk_data_op_line_error <<- dt[!grepl("^[0-9]", dt$op_line), ]
-  # }
-  # dt <- dt[grepl("^[0-9]", dt$op_line), ]
-  
+  dt$response_date <- tstrsplit(dt$특기사항, "\\s+", fixed = FALSE, fill = NA, type.convert = TRUE)[[1]]
+
   return(dt)
 }
 
+my_mutate_recur_date <- function(dt) {
+  
+  dt$Recur<- ifelse(dt$Response=="Structural","Y","N")
+
+  return(dt)
+}
 
 my_parsing_response_data<-function(dt) {
   
   response_data <- dt[분류명 %in% c("Excellent","Indeterminate","Biochemical","Structural")]
   setnames(response_data, "분류명", "Response")
-  response_data <- my_splilt_lines_for_response_data(response_data)  
+  response_data[, 등록일 := as.Date(등록일, format="%Y-%m-%d")]
+  response_data <- my_parsing_response_line(response_data)
+  response_data <- my_mutate_recur_date(response_data)
+  
+  return(response_data)
+  
+}
+
+################################################################################
+## my_functions_for_followup
+################################################################################
+my_parsing_response_line <- function(dt) {
+  
+  dt$response_date <- tstrsplit(dt$특기사항, "\\s+", fixed = FALSE, fill = NA, type.convert = TRUE)[[1]]
+  
+  return(dt)
+}
+
+my_mutate_recur_date <- function(dt) {
+  
+  dt$Recur<- ifelse(dt$Response=="Structural","Y","N")
+  
+  return(dt)
+}
+
+my_parsing_followup_data<-function(dt) {
+  
+  response_data <- dt[분류명 %in% c("Excellent","Indeterminate","Biochemical","Structural")]
+  setnames(response_data, "분류명", "Response")
+  response_data[, 등록일 := as.Date(등록일, format="%Y-%m-%d")]
+  response_data <- my_parsing_response_line(response_data)
+  response_data <- my_mutate_recur_date(response_data)
   
   return(response_data)
   

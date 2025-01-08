@@ -110,6 +110,13 @@ response_data <- my_parsing_response_data (deidentified_PatientID_data)
 
 ```
 
+```{r parsing_followup_data, warning=FALSE, message=FALSE}
+
+source("C:/Projects/R-4.4.1-Thyroid_Cancer_Prognosis/source/my_functions.R")
+followup_data <- my_parsing_followup_data (deidentified_PatientID_data)
+
+```
+
 ```{r cN_validation, warning=FALSE, message=FALSE, eval=FALSE}
 
 min(risk_data$cN_date, na.rm = TRUE)
@@ -172,13 +179,6 @@ if (input_error_checking_mode == "Y") {
 
 ```
 
-```{r seperation_response_data, warning=FALSE}
-
-response_data <- hashed_data[분류명 %in% c("Excellent", "Indeterminate", "Biochemical", "Structural")]
-setnames(response_data, "분류명", "Response")
-response_data[, 등록일 := as.Date(등록일, format="%Y-%m-%d")]
-
-```
 
 ```{r rai_data, warning=FALSE}
 
