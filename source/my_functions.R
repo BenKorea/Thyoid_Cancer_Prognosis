@@ -384,13 +384,12 @@ my_mutate_recur_date <- function(dt) {
 
 my_parsing_followup_data<-function(dt) {
   
-  response_data <- dt[분류명 %in% c("Excellent","Indeterminate","Biochemical","Structural")]
-  setnames(response_data, "분류명", "Response")
-  response_data[, 등록일 := as.Date(등록일, format="%Y-%m-%d")]
-  response_data <- my_parsing_response_line(response_data)
-  response_data <- my_mutate_recur_date(response_data)
+  followup_data <- dt[분류명 %in% c("Transfer","follow up loss","expire","요양병원","호스피스")]
+  setnames(followup_data, "분류명", "FollowUp")
+  followup_data[, 등록일 := as.Date(등록일, format="%Y-%m-%d")]
+
   
-  return(response_data)
+  return(followup_data)
   
 }
 

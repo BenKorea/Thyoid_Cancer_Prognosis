@@ -81,6 +81,58 @@ raw_data <- load_raw_data(raw_data_path, pattern)
 
 ```
 
+```{r load_patient_data, warning=FALSE, message=FALSE}
+
+library(dplyr)
+
+pattern <- "핵의학과.*"
+NM_levothyroxine_data <- load_raw_data(raw_data_path, pattern)
+NM_levothyroxine_data$처방일자 <-as.Date(NM_levothyroxine_data$처방일자)
+NM_levothyroxine_data$수량 <-as.numeric(NM_levothyroxine_data$수량)
+
+summary_NM_levothyroxine <- NM_levothyroxine_data %>%
+  group_by(등록번호, 환자명) %>%
+  summarise(
+    first_prescription_date = min(처방일자),
+    last_prescription_date = max(처방일자),
+    total_quantity = sum(수량),
+    prescription_count = n(),
+    .groups = "drop"
+  )
+
+
+pattern <- "김병일.*"
+my_levothyroxine_data <- load_raw_data(raw_data_path, pattern)
+my_levothyroxine_data$처방일자 <-as.Date(my_levothyroxine_data$처방일자)
+my_levothyroxine_data$수량 <-as.numeric(my_levothyroxine_data$수량)
+
+summary_my_levothyroxine <- my_levothyroxine_data %>%
+  group_by(등록번호, 환자명) %>%
+  summarise(
+    first_prescription_date = min(처방일자),
+    last_prescription_date = max(처방일자),
+    total_quantity = sum(수량),
+    prescription_count = n(),
+    .groups = "drop"
+  )
+
+
+pattern <- "테트로닌.*"
+T3_patient_data <- load_raw_data(raw_data_path, pattern)
+
+pattern <- "타이로젠.*"
+rhTSH_patient_data <- load_raw_data(raw_data_path, pattern)
+
+summary_table <- summary_table %>%
+  mutate(
+    T3 = ifelse(등록번호 %in% T3_patient_data$등록번호, "Y", "N"),
+    rhTSH = ifelse(등록번호 %in% rhTSH_patient_data$등록번호, "Y", "N")
+  )
+
+
+
+```
+
 ```{r deidentify_PatientID, warning=FALSE, message=FALSE}
 
 deidentified_PatientID_data<-my_deidentify_PatientID(raw_data, "등록번호")

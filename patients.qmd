@@ -1,0 +1,22 @@
+
+```{r load_raw_data, warning=FALSE, message=FALSE}
+
+load_raw_data <- function(folder_path, pattern) {
+
+  excel_file_name <- list.files(folder_path, pattern = pattern)
+  # 다운로드 날자를 추출하여 birthday input error를 확인하기 위해 사용할 예정
+  date_string <- substr(excel_file_name, 6, 13)
+  downloaded_date <<- as.Date(date_string, format = "%Y%m%d")
+  data <- as.data.table(read_excel(file.path(folder_path, excel_file_name[1])))
+
+  return(data)
+}
+
+raw_data_path <-"C:\Users\Administrator\내 드라이브\Rwork\Projects\R441-TCP"
+
+# project_path <<- getwd()
+# raw_data_path <<- file.path(project_path, raw_data_directory)
+pattern <- "김병일.*"
+raw_data <- load_raw_data(raw_data_path, pattern)
+
+```
